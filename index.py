@@ -1,171 +1,131 @@
+# script_integrado_estefania.py
+import os
+import random
+from datetime import date
 import pandas as pd
-import numpy as np
-import random, math
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-from sklearn.cluster import KMeans
-import inspect
+from faker import Faker
 
-K_ANON = 6 
-RANDOM_SEED = 42
-np.random.seed(RANDOM_SEED)
-random.seed(RANDOM_SEED)
+# Configura Faker
+fake = Faker('pt_BR')
 
-DEFAULT_WEIGHTS = {
-    'idade': 1.0,
-    'sexo': 0.8,
-    'tomou_vacina': 0.5,
-    'data_vacinacao': 0.7,
-    'local_vacinacao': 0.9
+# Cria pasta de saída
+os.makedirs("dados_anonimizados", exist_ok=True)
+
+# Perfil fixo da Estefânia
+estefania = {
+    "nome": "Estefânia",
+    "idade": 25,
+    "sexo": "F",
+    "tomou_vacina": "Sim",
+    "data_vacinacao": "2021-02-16",
+    "local_vacinacao": "UBS Centro"
 }
 
-FIRST_NAMES = ["Ana","Bruno","Carlos","Daniela","Eduardo","Fabiana","Gustavo","Helena","Igor","Julia",
-               "Lucas","Mariana","Natália","Otávio","Patrícia","Rafael","Sofia","Tiago","Vanessa"]
-LAST_NAMES = ["Almeida","Barros","Castro","Dias","Esteves","Fernandes","Gomes","Henrique",
-              "Lopes","Matos","Nogueira","Oliveira","Pereira","Ramos","Silva","Teixeira"]
+# Função para gerar uma pessoa aleatória
+def gerar_pessoa():
+    sexo = random.choice(["M", "F"])
+    nome = fake.first_name_female() if sexo == "F" else fake.first_name_male()
+    return {
+        "nome": nome,
+        "idade": random.randint(18, 80),
+        "sexo": sexo,
+        "tomou_vacina": random.choice(["Sim", "Não"]),
+        "data_vacinacao": fake.date_between(start_date=date(2021, 1, 1), end_date=date(2021, 12, 31)).isoformat(),
+        "local_vacinacao": random.choice(["UBS Norte", "UBS Sul", "UBS Centro", "UBS Leste", "UBS Oeste"])
+    }
 
-def parse_date_to_days(series):
-    """Converte datas para número de dias desde a menor data."""
-    dates = pd.to_datetime(series, errors='coerce')
-    min_date = dates.min()
-    days = (dates - min_date).dt.days.fillna(-1)
-    return days.astype(int), min_date
+# Função para gerar registros similares à Estefânia
+def gerar_registros_estefania(quantidade=5):
+    rng = random.Random()
+    registros = []
+    for _ in range(quantidade):
+        registros.append({
+            "nome": "Estefânia",
+            "idade": rng.randint(20, 30),  # idade aleatória entre 20 e 30
+            "sexo": "F",
+            "tomou_vacina": "Sim",
+            "data_vacinacao": fake.date_between(start_date=date(2021, 2, 1), end_date=date(2021, 2, 28)).isoformat(),
+            "local_vacinacao": "UBS Centro"
+        })
+    return registros
 
-def generate_pseudonym():
-    """Gera um nome falso aleatório."""
-    return f"{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}"
+# Gera 10 arquivos CSV
+for i in range(1, 11):
+    filename_csv = f"dados_anonimizados/dados_anon_{i}.csv"
+    
+    # 1 registro da Estefânia + 5 similares + 14 aleatórios = 20 registros
+    pessoas = [estefania] + gerar_registros_estefania(5) + [gerar_pessoa() for _ in range(14)]
+    
+    # Cria DataFrame
+    df = pd.DataFrame(pessoas)
+    
+    # ----------------------
+    # Etapa de anonimização
+    # ----------------------
+    
+    # Pseudonimiza os nomes
+    df["nome"] = [f"Pessoa_{j+1}" for j in range(len(df))]
+    
+    # Força Estefânia como Pessoa_1
+    df.loc[0, "nome"] = "Pessoa_1"
+    
+    # Salva CSV anonimizado
+    df.to_csv(filename_csv, index=False, encoding="utf-8")
+    
+    print(f"✅ Arquivo {filename_csv} criado com sucesso! Estefânia é Pessoa_1")
 
-def ensure_k_anonymity_assignments(df, labels, k=K_ANON):
-    """Garante que cada cluster tenha pelo menos k registros."""
-    df = df.copy()
-    df['_cluster'] = labels
-    while True:
-        counts = df['_cluster'].value_counts()
-        small = counts[counts < k]
-        if small.empty:
-            break
-        small_cluster_id = small.idxmin()
-        small_idx = df[df['_cluster'] == small_cluster_id].index
-        feat_cols = [c for c in df.columns if c.startswith('feat_')]
-        centroids = df.groupby('_cluster')[feat_cols].mean()
-        c_small = centroids.loc[small_cluster_id].values.reshape(1, -1)
-        others = centroids.drop(index=small_cluster_id)
-        dists = ((others.values - c_small)**2).sum(axis=1)
-        nearest_cluster_id = others.index[dists.argmin()]
-        df.loc[small_idx, '_cluster'] = nearest_cluster_id
-    return df['_cluster'].values
 
+# ------------------------------
+# PARTE 2: AGRUPAMENTO DE ESTEFÂNIA
+# ------------------------------
 
-def microaggregate_and_synthesize(df_input, weights=DEFAULT_WEIGHTS, k=K_ANON, generate_extra=True):
-    df = df_input.copy().reset_index(drop=True)
-    required = ['nome','idade','sexo','tomou_vacina','data_vacinacao','local_vacinacao']
-    for col in required:
-        if col not in df.columns:
-            raise ValueError(f"Coluna obrigatória ausente: {col}")
-
-    df['tomou_vacina'] = df['tomou_vacina'].map({True:1, False:0, 'True':1, 'False':0, 'SIM':1, 'NÃO':0, 'NAO':0}).fillna(0).astype(int)
-    days, min_date = parse_date_to_days(df['data_vacinacao'])
-    df['data_vac_days'] = days
-
-    if 'sparse_output' in inspect.signature(OneHotEncoder).parameters:
-        ohe = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
+def agrupar_registros_estefania(arquivo_entrada, arquivo_saida):
+    try:
+        df = pd.read_csv(arquivo_entrada)
+    except FileNotFoundError:
+        print(f"⚠️ Arquivo não encontrado: {arquivo_entrada}")
+        return
+    
+    criterios_estefania = {
+        "idade": (20,30),
+        "sexo": "F",
+        "tomou_vacina": "Sim",
+        "mes_vacinacao": 2,
+        "ano_vacinacao": 2021,
+        "local_vacinacao": "UBS Centro"
+    }
+    
+    df["data_vacinacao"] = pd.to_datetime(df["data_vacinacao"], errors='coerce')
+    
+    filtro = (
+        (df["idade"].between(*criterios_estefania["idade"])) &
+        (df["sexo"] == criterios_estefania["sexo"]) &
+        (df["tomou_vacina"] == criterios_estefania["tomou_vacina"]) &
+        (df["data_vacinacao"].dt.month == criterios_estefania["mes_vacinacao"]) &
+        (df["data_vacinacao"].dt.year == criterios_estefania["ano_vacinacao"]) &
+        (df["local_vacinacao"] == criterios_estefania["local_vacinacao"])
+    )
+    
+    grupo_estefania = df[filtro]
+    
+    grupo_estefania.to_csv(arquivo_saida, index=False)
+    
+    if not grupo_estefania.empty:
+        print(f"✅ {len(grupo_estefania)} registros coincidem com o perfil da Estefânia em {arquivo_entrada}.")
+        print(f"   → Resultado salvo em: {arquivo_saida}")
     else:
-        ohe = OneHotEncoder(sparse=False, handle_unknown='ignore')
+        print(f"⚠️ Nenhum registro correspondente encontrado em {arquivo_entrada}.")
 
-    cat_data = ohe.fit_transform(df[['sexo','local_vacinacao']].fillna('NA'))
-    cat_names = ohe.get_feature_names_out(['sexo','local_vacinacao'])
-
-    numeric = df[['idade','tomou_vacina','data_vac_days']].fillna(-1).values.astype(float)
-    scaler = StandardScaler()
-    numeric_scaled = scaler.fit_transform(numeric)
-    numeric_weighted = numeric_scaled * np.array([
-        weights.get('idade',1.0),
-        weights.get('tomou_vacina',1.0),
-        weights.get('data_vacinacao',1.0)
-    ])
-
-    cat_scaled = cat_data.copy()
-    sexo_cols = [i for i,c in enumerate(cat_names) if c.startswith('sexo_')]
-    local_cols = [i for i,c in enumerate(cat_names) if c.startswith('local_vacinacao_')]
-    if sexo_cols:
-        cat_scaled[:, sexo_cols] *= (weights.get('sexo',1.0) / max(1, len(sexo_cols)))
-    if local_cols:
-        cat_scaled[:, local_cols] *= (weights.get('local_vacinacao',1.0) / max(1, len(local_cols)))
-
-    features = np.hstack([numeric_weighted, cat_scaled])
-    feat_cols = [f'feat_{i}' for i in range(features.shape[1])]
-    feat_df = pd.DataFrame(features, columns=feat_cols)
-
-    n = len(df)
-    n_clusters = max(1, n // k)
-    kmeans = KMeans(n_clusters=n_clusters, random_state=RANDOM_SEED, n_init=10)
-    labels = kmeans.fit_predict(features)
-
-    feat_and_labels = feat_df.copy()
-    feat_and_labels.index = df.index
-    feat_and_labels['_cluster'] = labels
-    merged_labels = ensure_k_anonymity_assignments(pd.concat([feat_and_labels, df], axis=1), labels, k=k)
-    df['_cluster'] = merged_labels
-
-    anonymized_rows = []
-
-    for cluster_id, cluster in df.groupby('_cluster'):
-        size = len(cluster)
-
-        mean_idade = int(round(cluster['idade'].mean()))
-        valid_days = cluster['data_vac_days'].replace(-1, np.nan).dropna()
-        mean_days = int(round(valid_days.mean())) if len(valid_days)>0 else -1
-        vac_sum = cluster['tomou_vacina'].sum()
-
-        synth_count = size * 2 if generate_extra else size
-
-        for _ in range(synth_count):
-            pseud = generate_pseudonym()
-            idade_synth = int(max(0, np.random.normal(mean_idade, 2.5)))
-            if mean_days >= 0:
-                days_synth = int(max(-1, np.random.normal(mean_days, 3.0)))
-                date_synth = (min_date + pd.Timedelta(days=days_synth)).date().isoformat()
-            else:
-                date_synth = ""
-            sexo_synth = cluster['sexo'].sample(1).iloc[0]
-            local_synth = cluster['local_vacinacao'].sample(1).iloc[0]
-            tomou_synth = int(np.random.choice([0,1], p=[1 - vac_sum/size, vac_sum/size]))
-
-            anonymized_rows.append({
-                'pseudonimo': pseud,
-                'idade': idade_synth,
-                'sexo': sexo_synth,
-                'tomou_vacina': bool(tomou_synth),
-                'data_vacinacao': date_synth,
-                'local_vacinacao': local_synth
-            })
-
-    anonymized_df = pd.DataFrame(anonymized_rows)
-    return anonymized_df
+def processar_todos_os_arquivos():
+    pasta_entrada = "dados_anonimizados"
+    pasta_saida = "agrupamentos"
+    
+    for i in range(1,11):
+        arquivo_entrada = os.path.join(pasta_entrada, f"dados_anon_{i}.csv")
+        arquivo_saida = os.path.join(pasta_saida, f"grupo_estefania_{i}.csv")
+        agrupar_registros_estefania(arquivo_entrada, arquivo_saida)
+    
+    print("\n✅ Processamento concluído para todos os arquivos!")
 
 if __name__ == "__main__":
-    data = [
-        ["João Silva", 34, "M", True, "2021-02-15", "UBS Centro"],
-        ["Maria Souza", 28, "F", True, "2021-02-16", "UBS Leste"],
-        ["Pedro Lima", 45, "M", False, "", "UBS Oeste"],
-        ["Ana Paula", 67, "F", True, "2021-02-20", "UBS Centro"],
-        ["Carlos Alberto", 52, "M", True, "2021-02-18", "UBS Norte"],
-        ["Mariana Rocha", 30, "F", False, "", "UBS Centro"],
-        ["Rafael Costa", 41, "M", True, "2021-02-17", "UBS Norte"],
-        ["Beatriz Nunes", 23, "F", False, "", "UBS Leste"],
-        ["Felipe Martins", 59, "M", True, "2021-02-19", "UBS Oeste"],
-        ["Luiza Fernandes", 36, "F", True, "2021-02-21", "UBS Centro"]
-    ]
-    df_example = pd.DataFrame(data, columns=['nome','idade','sexo','tomou_vacina','data_vacinacao','local_vacinacao'])
-
-    print("=== ORIGINAL ===")
-    print(df_example)
-
-    print("\nGerando registros anonimizados e sintéticos...\n")
-    anon = microaggregate_and_synthesize(df_example, weights=DEFAULT_WEIGHTS, k=K_ANON, generate_extra=True)
-
-    print("=== ANONIMIZADOS (SINTÉTICOS) ===")
-    print(anon)
-    print(f"\nTotal de registros gerados: {len(anon)}")
-
-    anon.to_csv("anonymized_output.csv", index=False)
-    print("\nArquivo salvo: anonymized_output.csv")
+    processar_todos_os_arquivos()

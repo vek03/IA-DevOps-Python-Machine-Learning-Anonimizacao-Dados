@@ -1,0 +1,7 @@
+nome,idade,sexo,tomou_vacina,data_vacinacao,local_vacinacao
+Pessoa_1,25,F,Sim,2021-02-16,UBS Centro
+Pessoa_2,22,F,Sim,2021-02-16,UBS Centro
+Pessoa_3,22,F,Sim,2021-02-26,UBS Centro
+Pessoa_4,21,F,Sim,2021-02-20,UBS Centro
+Pessoa_5,22,F,Sim,2021-02-25,UBS Centro
+Pessoa_6,25,F,Sim,2021-02-09,UBS Centro

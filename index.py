@@ -10,6 +10,8 @@ fake = Faker('pt_BR')
 
 # Cria pasta de saída
 os.makedirs("dados_anonimizados", exist_ok=True)
+os.makedirs("agrupamentos", exist_ok=True)
+
 
 # Perfil fixo da Estefânia
 estefania = {

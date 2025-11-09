@@ -53,13 +53,7 @@ venv\Scripts\activate
 source venv/bin/activate
 ````
 
-### 2️⃣ Instale as dependências necessárias
-
-```bash
-pip install pandas faker jupyter
-```
-
-### 3️⃣ Inicie o Jupyter Notebook
+### 2️⃣ Inicie o Jupyter Notebook
 
 ```bash
 jupyter notebook

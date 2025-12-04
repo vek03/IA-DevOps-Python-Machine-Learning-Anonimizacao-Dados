@@ -32,10 +32,11 @@ Em seguida, o notebook aplica uma **etapa de anonimização** (pseudonimização
 
 ## 🧩 Tecnologias Utilizadas
 
-- **Python 3.8+**
-- **Pandas** → manipulação e filtragem de dados tabulares
-- **Faker (pt_BR)** → geração de dados sintéticos realistas
-- **Jupyter Notebook** → execução passo a passo e análise interativa
+- ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python&logoColor=white) **Python 3.8+**
+- ![Pandas](https://img.shields.io/badge/Pandas-Data%20Analysis-150458?logo=pandas&logoColor=white) **Pandas** → manipulação e filtragem de dados tabulares
+- ![Faker](https://img.shields.io/badge/Faker-pt__BR-orange?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMEM1LjM3IDAgMCA1LjM3IDAgMTJDMCAxOC42MyA1LjM3IDI0IDEyIDI0QzE4LjYzIDI0IDI0IDE4LjYzIDI0IDEyQzI0IDUuMzcgMTguNjMgMCAxMiAwWk0xMiAyMkM2LjQ4IDIyIDIgMTcuNTIgMiAxMkMyIDYuNDggNi40OCAyIDEyIDJDMTcuNTIgMiAyMiA2LjQ4IDIyIDEyQzIyIDE3LjUyIDE3LjUyIDIyIDEyIDIyWk0xMyAxN0gxMVYxNUgxM1YxN1pNMTMgMTJIMTFWN0gxM1YxMlpNMTMgNUgxMVYzSDEzVjVaIiBmaWxsPSJ3aGl0ZSIvPjwvc3ZnPg==) **Faker (pt_BR)** → geração de dados sintéticos realistas
+- ![Jupyter](https://img.shields.io/badge/Jupyter-Notebook-F37626?logo=jupyter&logoColor=white) **Jupyter Notebook** → execução passo a passo e análise interativa
+
 
 ---
 

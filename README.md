@@ -51,6 +51,9 @@ venv\Scripts\activate
 
 # Ativar no macOS/Linux
 source venv/bin/activate
+
+# Instalar Jupyter Notebook
+pip install notebook
 ````
 
 ### 2️⃣ Inicie o Jupyter Notebook
